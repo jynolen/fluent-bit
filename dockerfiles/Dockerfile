@@ -60,9 +60,23 @@ RUN echo "deb http://deb.debian.org/debian bullseye-backports main" >> /etc/apt/
 WORKDIR /src/fluent-bit/
 COPY . ./
 
+FROM builder-base AS builder-arm64
+
+# Need larger page size
+ARG FLB_JEMALLOC_OPTIONS="--with-lg-page=16 --with-lg-quantum=3"
+ENV FLB_JEMALLOC_OPTIONS=$FLB_JEMALLOC_OPTIONS
+
+FROM builder-base AS builder-armv7
+
+FROM builder-base AS builder-amd64
+
+FROM builder-base AS builder-s390x
+
 # We split the builder setup out so people can target it or use as a base image without doing a full build.
-FROM builder-base as builder
+FROM builder-base-$TARGETARCH$TARGETVARIANT as builder
+
 WORKDIR /src/fluent-bit/build/
+
 RUN cmake -DFLB_RELEASE=On \
     -DFLB_JEMALLOC=On \
     -DFLB_TLS=On \
@@ -76,6 +90,7 @@ RUN cmake -DFLB_RELEASE=On \
     -DFLB_NIGHTLY_BUILD="$FLB_NIGHTLY_BUILD" \
     -DFLB_LOG_NO_CONTROL_CHARS=On \
     -DFLB_CHUNK_TRACE="$FLB_CHUNK_TRACE" \
+    -DFLB_JEMALLOC_OPTIONS="$FLB_JEMALLOC_OPTIONS" \
     ..
 
 RUN make -j "$(getconf _NPROCESSORS_ONLN)"
